@@ -1,0 +1,17 @@
+{
+  "name": "medfam-app",
+  "version": "1.0.0",
+  "description": "MedFam — Aplikasi web responsif mobile-first untuk mencatat dan memantau riwayat kesehatan keluarga dengan keamanan PIN dan database Supabase.",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "keywords": [
+    "health",
+    "family",
+    "supabase",
+    "mobile-first",
+    "pwa"
+  ],
+  "author": "Ridho Drajat",
+  "license": "MIT"
+}

@@ -1,0 +1,2480 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MedFam (Demo Showcase) - Pemantauan Kesehatan Keluarga</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <!-- React & ReactDOM CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              500: '#0d9488',
+              600: '#0f766e',
+              700: '#115e59',
+              800: '#134e4a',
+              900: '#042f2e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0f172a;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    @media print {
+      body {
+        background-color: #ffffff !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-0 sm:p-4 md:p-8 bg-slate-900 selection:bg-teal-100 selection:text-teal-900">
+
+  <div id="root" class="w-full flex justify-center"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // SVG Demo Sample Documents
+    const DEMO_LAB_DOC = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="360" height="460" viewBox="0 0 360 460" fill="none">
+        <rect width="360" height="460" fill="#f8fafc" rx="8"/>
+        <rect x="16" y="16" width="328" height="52" rx="6" fill="#0d9488" fill-opacity="0.1"/>
+        <text x="28" y="40" font-family="Arial" font-size="13" font-weight="bold" fill="#0f766e">LABORATORIUM MEDIKA UTAMA</text>
+        <text x="28" y="56" font-family="Arial" font-size="9" fill="#64748b">No: LB-2025-0891 • 15 Feb 2025</text>
+        <line x1="16" y1="80" x2="344" y2="80" stroke="#cbd5e1" stroke-width="1"/>
+        <text x="20" y="105" font-family="Arial" font-size="10" font-weight="bold" fill="#334155">Pemeriksaan</text>
+        <text x="160" y="105" font-family="Arial" font-size="10" font-weight="bold" fill="#334155">Hasil</text>
+        <text x="250" y="105" font-family="Arial" font-size="10" font-weight="bold" fill="#334155">Rujukan</text>
+        <line x1="16" y1="115" x2="344" y2="115" stroke="#e2e8f0"/>
+        <text x="20" y="140" font-family="Arial" font-size="10" fill="#475569">Glukosa Sewaktu</text>
+        <text x="160" y="140" font-family="Arial" font-size="10" font-weight="bold" fill="#e11d48">142 mg/dL</text>
+        <text x="250" y="140" font-family="Arial" font-size="9" fill="#64748b">&lt; 140</text>
+        <text x="20" y="170" font-family="Arial" font-size="10" fill="#475569">Kolesterol Total</text>
+        <text x="160" y="170" font-family="Arial" font-size="10" font-weight="bold" fill="#d97706">218 mg/dL</text>
+        <text x="250" y="170" font-family="Arial" font-size="9" fill="#64748b">&lt; 200</text>
+        <text x="20" y="200" font-family="Arial" font-size="10" fill="#475569">Asam Urat</text>
+        <text x="160" y="200" font-family="Arial" font-size="10" font-weight="bold" fill="#047857">5.8 mg/dL</text>
+        <text x="250" y="200" font-family="Arial" font-size="9" fill="#64748b">3.4 - 7.0</text>
+        <rect x="20" y="240" width="320" height="70" rx="6" fill="#f1f5f9" stroke="#e2e8f0"/>
+        <text x="30" y="262" font-family="Arial" font-size="9" font-weight="bold" fill="#334155">Catatan Validasi Dokter:</text>
+        <text x="30" y="282" font-family="Arial" font-size="9" fill="#64748b">Evaluasi diet rendah lemak & karbohidrat.</text>
+        <circle cx="290" cy="380" r="28" fill="#0d9488" fill-opacity="0.12"/>
+        <text x="268" y="383" font-family="Arial" font-size="8" font-weight="bold" fill="#0f766e">TERVERIFIKASI</text>
+      </svg>
+    `);
+
+    const DEMO_PRESCRIPTION_DOC = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="360" height="460" viewBox="0 0 360 460" fill="none">
+        <rect width="360" height="460" fill="#fffbeb" rx="8"/>
+        <rect x="16" y="16" width="328" height="44" rx="6" fill="#fef3c7"/>
+        <text x="28" y="38" font-family="Georgia" font-size="12" font-weight="bold" fill="#78350f">dr. Hendra Wicaksono, Sp.PD</text>
+        <text x="28" y="50" font-family="Arial" font-size="8" fill="#92400e">SIP: 503/442/SIP.DOKTER/2021</text>
+        <line x1="16" y1="72" x2="344" y2="72" stroke="#fde68a" stroke-width="1.5"/>
+        <text x="24" y="105" font-family="Times New Roman" font-size="24" font-style="italic" font-weight="bold" fill="#b45309">R/</text>
+        <text x="64" y="105" font-family="Courier New" font-size="11" font-weight="bold" fill="#1e293b">Amlodipine 5mg tab No. XXX</text>
+        <text x="64" y="122" font-family="Courier New" font-size="9" fill="#475569">S 1 dd tab 1 pagi hari sesudah makan</text>
+        <text x="24" y="155" font-family="Times New Roman" font-size="24" font-style="italic" font-weight="bold" fill="#b45309">R/</text>
+        <text x="64" y="155" font-family="Courier New" font-size="11" font-weight="bold" fill="#1e293b">Vitamin B-Kompleks No. XV</text>
+        <text x="64" y="172" font-family="Courier New" font-size="9" fill="#475569">S 1 dd tab 1</text>
+        <rect x="20" y="330" width="160" height="60" rx="4" fill="#ffffff" stroke="#e2e8f0"/>
+        <text x="28" y="355" font-family="Arial" font-size="9" font-weight="bold" fill="#334155">Pasien: Budi Santoso</text>
+        <text x="28" y="372" font-family="Arial" font-size="8" fill="#64748b">Iter: Non-resep ulang</text>
+      </svg>
+    `);
+
+    // Initial data
+    const INITIAL_MEMBERS = [
+      {
+        id: 'fam-1',
+        name: 'Budi Santoso',
+        dob: '1968-08-14',
+        gender: 'Pria',
+        relation: 'Ayah',
+        bloodType: 'O+',
+        avatarColor: 'from-teal-500 to-emerald-600',
+        checkups: [
+          {
+            id: 'c-1',
+            date: '2025-02-15',
+            bloodSugar: 142,
+            bpSystolic: 138,
+            bpDiastolic: 88,
+            cholesterol: 218,
+            weight: 74,
+            height: 168,
+            customNotes: 'Pemeriksaan rutin posbindu pratama'
+          },
+          {
+            id: 'c-2',
+            date: '2025-01-10',
+            bloodSugar: 156,
+            bpSystolic: 145,
+            bpDiastolic: 92,
+            cholesterol: 230,
+            weight: 75.5,
+            height: 168,
+            customNotes: 'Sedikit pusing di tengkuk belakang'
+          },
+          {
+            id: 'c-3',
+            date: '2024-11-20',
+            bloodSugar: 165,
+            bpSystolic: 148,
+            bpDiastolic: 95,
+            cholesterol: 240,
+            weight: 76,
+            height: 168,
+            customNotes: 'Mulai diet rendah garam dan kurangi gorengan'
+          }
+        ],
+        illnesses: [
+          {
+            id: 'ill-1',
+            name: 'Hipertensi Primer Derajat 1',
+            startDate: '2023-04-12',
+            endDate: '',
+            notes: 'Mengkonsumsi Amlodipine 5mg sesuai anjuran dr. Sp.PD'
+          }
+        ],
+        documents: [
+          {
+            id: 'doc-1',
+            title: 'Hasil Lab Kolesterol & Glukosa',
+            category: 'Hasil Lab',
+            date: '2025-02-15',
+            issuer: 'Lab Medika Utama',
+            notes: 'GDS 142, Kolesterol 218. Kontrol ulang 3 bulan.',
+            fileData: DEMO_LAB_DOC
+          },
+          {
+            id: 'doc-2',
+            title: 'Resep Rutin Tensi dr. Hendra',
+            category: 'Resep Obat',
+            date: '2025-01-12',
+            issuer: 'dr. Hendra Wicaksono, Sp.PD',
+            notes: 'Amlodipine 5mg sekali sehari pagi hari',
+            fileData: DEMO_PRESCRIPTION_DOC
+          }
+        ]
+      },
+      {
+        id: 'fam-2',
+        name: 'Siti Rahmawati',
+        dob: '1972-03-22',
+        gender: 'Wanita',
+        relation: 'Ibu',
+        bloodType: 'B+',
+        avatarColor: 'from-rose-400 to-pink-600',
+        checkups: [
+          {
+            id: 'c-4',
+            date: '2025-02-18',
+            bloodSugar: 110,
+            bpSystolic: 118,
+            bpDiastolic: 76,
+            cholesterol: 185,
+            weight: 60,
+            height: 158,
+            customNotes: 'Kondisi prima'
+          }
+        ],
+        illnesses: [
+          {
+            id: 'ill-3',
+            name: 'Dispepsia / Maag',
+            startDate: '2022-01-10',
+            endDate: '',
+            notes: 'Kambuh bila terlambat makan'
+          }
+        ],
+        documents: []
+      },
+      {
+        id: 'fam-3',
+        name: 'Dimas Pratama',
+        dob: '2001-11-05',
+        gender: 'Pria',
+        relation: 'Anak',
+        bloodType: 'O+',
+        avatarColor: 'from-blue-500 to-indigo-600',
+        checkups: [
+          {
+            id: 'c-5',
+            date: '2025-02-01',
+            bloodSugar: 94,
+            bpSystolic: 115,
+            bpDiastolic: 72,
+            cholesterol: 165,
+            weight: 68,
+            height: 175,
+            customNotes: 'Pemeriksaan kebugaran'
+          }
+        ],
+        illnesses: [],
+        documents: []
+      }
+    ];
+
+    // Helper functions
+    const calculateAge = (dobString) => {
+      if (!dobString) return 0;
+      const today = new Date();
+      const birthDate = new Date(dobString);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age;
+    };
+
+    const evaluateBloodSugar = (val) => {
+      if (!val) return null;
+      if (val < 90) return { status: 'Rendah', level: 'low', ref: 'PERKENI: Hipoglikemia' };
+      if (val <= 140) return { status: 'Normal', level: 'normal', ref: 'PERKENI: Normal (90-140 mg/dL)' };
+      if (val <= 199) return { status: 'Pre-Diabetes', level: 'warning', ref: 'PERKENI: Toleransi Glukosa Terganggu' };
+      return { status: 'Tinggi', level: 'high', ref: 'PERKENI: Indikasi Diabetes (≥200 mg/dL)' };
+    };
+
+    const evaluateBloodPressure = (systolic, diastolic) => {
+      if (!systolic || !diastolic) return null;
+      if (systolic < 90 || diastolic < 60) return { status: 'Rendah', level: 'low', ref: 'INA-SH: Hipotensi' };
+      if (systolic <= 120 && diastolic <= 80) return { status: 'Normal', level: 'normal', ref: 'Kemenkes RI: Normal (≤120/80)' };
+      if (systolic <= 139 || diastolic <= 89) return { status: 'Pre-Hipertensi', level: 'warning', ref: 'Kemenkes RI: 121-139 / 81-89' };
+      return { status: 'Hipertensi', level: 'high', ref: 'JNC 8: Waspada Hipertensi (≥140/90)' };
+    };
+
+    const evaluateCholesterol = (val) => {
+      if (!val) return null;
+      if (val < 200) return { status: 'Normal', level: 'normal', ref: 'Target &lt;200 mg/dL' };
+      if (val <= 239) return { status: 'Batas Tinggi', level: 'warning', ref: 'Ambang Batas 200-239 mg/dL' };
+      return { status: 'Tinggi', level: 'high', ref: 'Risiko Dislipidemia (≥240 mg/dL)' };
+    };
+
+    const StatusBadge = ({ evaluation }) => {
+      if (!evaluation) return null;
+      const config = {
+        normal: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        low: 'bg-blue-50 text-blue-700 border-blue-200',
+        warning: 'bg-amber-50 text-amber-800 border-amber-200',
+        high: 'bg-rose-50 text-rose-700 border-rose-200',
+      }[evaluation.level] || 'bg-slate-100 text-slate-700 border-slate-200';
+
+      return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${config}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            evaluation.level === 'normal' ? 'bg-emerald-500' :
+            evaluation.level === 'low' ? 'bg-blue-500' :
+            evaluation.level === 'warning' ? 'bg-amber-500' : 'bg-rose-500'
+          }`}></span>
+          {evaluation.status}
+        </span>
+      );
+    };
+
+    // SVG Line Chart Component
+    const SimpleLineChart = ({ data, metricKey, color = '#0d9488' }) => {
+      if (!data || data.length < 2) {
+        return (
+          <div className="py-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl">
+            Perlu minimal 2 data pemeriksaan untuk menampilkan grafik tren.
+          </div>
+        );
+      }
+      const sorted = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+      const points = sorted.map(d => ({
+        val: d[metricKey],
+        date: d.date.split('-').slice(1).join('/')
+      })).filter(p => p.val !== undefined && p.val !== null);
+
+      if (points.length < 2) return null;
+
+      const values = points.map(p => p.val);
+      const dataMin = Math.min(...values);
+      const dataMax = Math.max(...values);
+      const pad = (dataMax - dataMin) * 0.2 || 10;
+      const effectiveMin = Math.max(0, Math.floor(dataMin - pad));
+      const effectiveMax = Math.ceil(dataMax + pad);
+
+      const width = 310;
+      const height = 110;
+      const padding = { top: 12, right: 12, bottom: 24, left: 24 };
+
+      const getX = (index) => padding.left + (index / (points.length - 1)) * (width - padding.left - padding.right);
+      const getY = (val) => {
+        const range = effectiveMax - effectiveMin || 1;
+        return height - padding.bottom - ((val - effectiveMin) / range) * (height - padding.top - padding.bottom);
+      };
+
+      const pathD = points.reduce((acc, point, i) => {
+        const x = getX(i);
+        const y = getY(point.val);
+        return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
+      }, '');
+
+      const areaD = points.reduce((acc, point, i) => {
+        const x = getX(i);
+        const y = getY(point.val);
+        return i === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
+      }, '') + ` L ${getX(points.length - 1)} ${height - padding.bottom} L ${getX(0)} ${height - padding.bottom} Z`;
+
+      return (
+        <div className="w-full">
+          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none">
+            <defs>
+              <linearGradient id={`grad-${metricKey}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+                <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
+            <line x1={padding.left} y1={getY(effectiveMin)} x2={width - padding.right} y2={getY(effectiveMin)} stroke="#f1f5f9" strokeWidth="1" />
+            <path d={areaD} fill={`url(#grad-${metricKey})`} />
+            <path d={pathD} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            {points.map((p, i) => (
+              <g key={i}>
+                <circle cx={getX(i)} cy={getY(p.val)} r="3.5" fill="#ffffff" stroke={color} strokeWidth="2" />
+                <text x={getX(i)} y={getY(p.val) - 6} textAnchor="middle" fontSize="9" fontWeight="700" fill="#334155">
+                  {p.val}
+                </text>
+                <text x={getX(i)} y={height - 6} textAnchor="middle" fontSize="8" fill="#94a3b8" fontWeight="500">
+                  {p.date}
+                </text>
+              </g>
+            ))}
+          </svg>
+        </div>
+      );
+    };
+
+    // Main App Component
+    function App() {
+      const [members, setMembers] = useState(() => {
+        const saved = localStorage.getItem('medfam_demo_data');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            return parsed.map(m => ({ ...m, documents: m.documents || [] }));
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        return INITIAL_MEMBERS;
+      });
+
+      const [selectedMemberId, setSelectedMemberId] = useState(null);
+      const [activeTab, setActiveTab] = useState('checkups'); // checkups | documents | illnesses | analytics
+      const [activeMetricTab, setActiveMetricTab] = useState('bloodSugar');
+
+      // Modals
+      const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+      const [showAddCheckupModal, setShowAddCheckupModal] = useState(false);
+      const [showAddIllnessModal, setShowAddIllnessModal] = useState(false);
+      const [showAddDocumentModal, setShowAddDocumentModal] = useState(false);
+      const [showDocumentPreview, setShowDocumentPreview] = useState(null);
+      const [showBackupModal, setShowBackupModal] = useState(false);
+      const [showExportReportModal, setShowExportReportModal] = useState(false);
+      const [showDisclaimerInfo, setShowDisclaimerInfo] = useState(false);
+      const [toastMessage, setToastMessage] = useState(null);
+
+      const [uploadPreviewUrl, setUploadPreviewUrl] = useState(null);
+
+      // PIN Security State
+      const [pinHash, setPinHash] = useState(() => localStorage.getItem('family_pin_hash'));
+      const [isLocked, setIsLocked] = useState(() => Boolean(localStorage.getItem('family_pin_hash')));
+      const [isPinSetup, setIsPinSetup] = useState(() => !localStorage.getItem('family_pin_hash'));
+      const [pinBuffer, setPinBuffer] = useState('');
+      const [pinStep, setPinStep] = useState(1);
+      const [tempNewPin, setTempNewPin] = useState('');
+      const [pinError, setPinError] = useState('');
+      const [isChangingPin, setIsChangingPin] = useState(false);
+      const [failedAttempts, setFailedAttempts] = useState(() => Number(localStorage.getItem('pin_failed_attempts') || 0));
+      const [lockoutUntil, setLockoutUntil] = useState(() => Number(localStorage.getItem('pin_lockout_until') || 0));
+
+      // Family Name State
+      const [familyName, setFamilyName] = useState(() => localStorage.getItem('medfam_family_name') || 'Keluarga Pratama');
+      const [isEditingFamilyName, setIsEditingFamilyName] = useState(false);
+
+      // Supabase Cloud State
+      const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem('supabase_url') || '');
+      const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem('supabase_anon_key') || '');
+      const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
+      const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+      const [cloudStatusText, setCloudStatusText] = useState('Penyimpanan Lokal');
+      const fileInputRef = useRef(null);
+      const backupFileInputRef = useRef(null);
+
+      useEffect(() => {
+        try {
+          localStorage.setItem('medfam_demo_data', JSON.stringify(members));
+        } catch (e) {
+          console.warn('Storage quota warning', e);
+        }
+      }, [members]);
+
+      const showToast = (msg) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(null), 3000);
+      };
+
+      const selectedMember = useMemo(() => {
+        return members.find(m => m.id === selectedMemberId);
+      }, [members, selectedMemberId]);
+
+      // Security PIN Methods
+      const hashPin = async (pin, salt = 'family_health_salt_') => {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(salt + pin);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      };
+
+      const handlePinPress = async (num) => {
+        if (Date.now() < lockoutUntil) {
+          setPinError('Keypad terkunci sementara.');
+          return;
+        }
+        if (pinBuffer.length >= 4) return;
+        const newBuf = pinBuffer + num.toString();
+        setPinBuffer(newBuf);
+
+        if (newBuf.length === 4) {
+          if (isPinSetup || isChangingPin) {
+            if (pinStep === 1) {
+              setTempNewPin(newBuf);
+              setPinStep(2);
+              setPinBuffer('');
+              setPinError('');
+            } else {
+              if (newBuf === tempNewPin) {
+                const hash = await hashPin(newBuf);
+                localStorage.setItem('family_pin_hash', hash);
+                setPinHash(hash);
+                setIsLocked(false);
+                setIsPinSetup(false);
+                setIsChangingPin(false);
+                setPinBuffer('');
+                setPinStep(1);
+                setPinError('');
+                showToast('PIN MedFam berhasil disimpan!');
+                if (window.supabaseClient) {
+                  try {
+                    await window.supabaseClient.from('app_settings').upsert({
+                      key: 'family_pin_hash',
+                      value: { hash },
+                      updated_at: new Date().toISOString()
+                    });
+                  } catch(e) {}
+                }
+              } else {
+                setPinError('PIN konfirmasi tidak cocok. Ulangi dari awal.');
+                setPinBuffer('');
+                setPinStep(1);
+                setTempNewPin('');
+              }
+            }
+          } else {
+            const inputHash1 = await hashPin(newBuf, 'family_health_salt_');
+            const inputHash2 = await hashPin(newBuf, 'medfam_health_salt_');
+            if (inputHash1 === pinHash || inputHash2 === pinHash) {
+              setIsLocked(false);
+              setPinBuffer('');
+              setPinError('');
+              setFailedAttempts(0);
+              localStorage.removeItem('pin_failed_attempts');
+              localStorage.removeItem('pin_lockout_until');
+              showToast('MedFam terbuka!');
+            } else {
+              const attempts = failedAttempts + 1;
+              setFailedAttempts(attempts);
+              localStorage.setItem('pin_failed_attempts', attempts.toString());
+              setPinBuffer('');
+              if (attempts >= 5) {
+                const lockUntil = Date.now() + 30 * 1000;
+                setLockoutUntil(lockUntil);
+                localStorage.setItem('pin_lockout_until', lockUntil.toString());
+                setPinError('Terlalu banyak percobaan salah! Terkunci 30 detik.');
+              } else {
+                setPinError('PIN salah! Sisa percobaan: ' + (5 - attempts) + 'x');
+              }
+            }
+          }
+        }
+      };
+
+      const initSupabase = async (rawUrl, rawKey) => {
+        if (!rawUrl || !rawKey || !window.supabase) {
+          setIsSupabaseConnected(false);
+          setCloudStatusText('Penyimpanan Lokal');
+          return false;
+        }
+        const url = rawUrl.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
+        const key = rawKey.trim();
+        try {
+          const client = window.supabase.createClient(url, key);
+          window.supabaseClient = client;
+          const { error } = await client.from('app_settings').select('key').limit(1);
+          if (!error) {
+            setIsSupabaseConnected(true);
+            setCloudStatusText('Terhubung ke Supabase Cloud');
+            const { data: pinData } = await client.from('app_settings').select('value').eq('key', 'family_pin_hash').single();
+            if (pinData && pinData.value && pinData.value.hash) {
+              localStorage.setItem('family_pin_hash', pinData.value.hash);
+              setPinHash(pinData.value.hash);
+            }
+            return true;
+          } else {
+            setIsSupabaseConnected(false);
+            setCloudStatusText('Error: ' + error.message);
+            return false;
+          }
+        } catch(e) {
+          setIsSupabaseConnected(false);
+          setCloudStatusText('Error: ' + e.message);
+          return false;
+        }
+      };
+
+      const handleSaveSupabase = async (rawUrl, rawKey) => {
+        const url = rawUrl.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
+        const key = rawKey.trim();
+        localStorage.setItem('supabase_url', url);
+        localStorage.setItem('supabase_anon_key', key);
+        setSupabaseUrl(url);
+        setSupabaseKey(key);
+        setIsSyncingCloud(true);
+        const ok = await initSupabase(url, key);
+        setIsSyncingCloud(false);
+        if (ok) {
+          showToast('✅ Berhasil terhubung ke Supabase Cloud!');
+        } else {
+          showToast('⚠️ Gagal menghubungkan Supabase.');
+        }
+      };
+
+      const handleSyncToCloud = async () => {
+        if (!window.supabaseClient) {
+          alert('Hubungkan ke Supabase terlebih dahulu');
+          return;
+        }
+        setIsSyncingCloud(true);
+        try {
+          await window.supabaseClient.from('app_settings').upsert({
+            key: 'medfam_family_data',
+            value: { members, familyName },
+            updated_at: new Date().toISOString()
+          });
+          if (pinHash) {
+            await window.supabaseClient.from('app_settings').upsert({
+              key: 'family_pin_hash',
+              value: { hash: pinHash },
+              updated_at: new Date().toISOString()
+            });
+          }
+          showToast('✅ Seluruh data MedFam tersinkron ke Cloud!');
+        } catch(e) {
+          alert('Gagal sinkronisasi: ' + e.message);
+        } finally {
+          setIsSyncingCloud(false);
+        }
+      };
+
+      const handlePullFromCloud = async () => {
+        if (!window.supabaseClient) return;
+        setIsSyncingCloud(true);
+        try {
+          const { data, error } = await window.supabaseClient.from('app_settings').select('value').eq('key', 'medfam_family_data').single();
+          if (data && data.value && Array.isArray(data.value.members)) {
+            setMembers(data.value.members);
+            if (data.value.familyName) {
+              setFamilyName(data.value.familyName);
+              localStorage.setItem('medfam_family_name', data.value.familyName);
+            }
+            showToast('✅ Data diperbarui dari Cloud!');
+          }
+        } catch(e) {
+          console.warn(e);
+        } finally {
+          setIsSyncingCloud(false);
+        }
+      };
+
+      useEffect(() => {
+        const savedUrl = localStorage.getItem('supabase_url');
+        const savedKey = localStorage.getItem('supabase_anon_key');
+        if (savedUrl && savedKey) {
+          initSupabase(savedUrl, savedKey).then(ok => {
+            if (ok) handlePullFromCloud();
+          });
+        }
+      }, []);
+
+      // Add Member
+      const handleCreateMember = (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const name = form.name.value.trim();
+        const dob = form.dob.value;
+        const gender = form.gender.value;
+        const relation = form.relation.value;
+        const bloodType = form.bloodType.value || 'O+';
+
+        if (!name || !dob) return;
+
+        const colors = [
+          'from-teal-500 to-emerald-600',
+          'from-sky-500 to-blue-600',
+          'from-indigo-500 to-purple-600',
+          'from-rose-400 to-red-600'
+        ];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+        const newMember = {
+          id: 'fam-' + Date.now(),
+          name,
+          dob,
+          gender,
+          relation,
+          bloodType,
+          avatarColor: randomColor,
+          checkups: [],
+          illnesses: [],
+          documents: []
+        };
+
+        setMembers([newMember, ...members]);
+        setShowAddMemberModal(false);
+        showToast(`Profil ${name} berhasil ditambahkan!`);
+      };
+
+      // Add Checkup
+      const handleCreateCheckup = (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const newCheckup = {
+          id: 'chk-' + Date.now(),
+          date: form.checkupDate.value || new Date().toISOString().split('T')[0],
+          bloodSugar: form.bloodSugar.value ? Number(form.bloodSugar.value) : null,
+          bpSystolic: form.bpSystolic.value ? Number(form.bpSystolic.value) : null,
+          bpDiastolic: form.bpDiastolic.value ? Number(form.bpDiastolic.value) : null,
+          cholesterol: form.cholesterol.value ? Number(form.cholesterol.value) : null,
+          weight: form.weight.value ? Number(form.weight.value) : null,
+          height: form.height.value ? Number(form.height.value) : null,
+          customNotes: form.customNotes.value.trim()
+        };
+
+        setMembers(prev => prev.map(m => {
+          if (m.id === selectedMemberId) {
+            return { ...m, checkups: [newCheckup, ...m.checkups] };
+          }
+          return m;
+        }));
+
+        setShowAddCheckupModal(false);
+        showToast('Pemeriksaan fisik baru berhasil disimpan!');
+      };
+
+      // Add Illness
+      const handleCreateIllness = (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const newIllness = {
+          id: 'ill-' + Date.now(),
+          name: form.illnessName.value.trim(),
+          startDate: form.startDate.value,
+          endDate: form.endDate.value || '',
+          notes: form.notes.value.trim()
+        };
+
+        setMembers(prev => prev.map(m => {
+          if (m.id === selectedMemberId) {
+            return { ...m, illnesses: [newIllness, ...m.illnesses] };
+          }
+          return m;
+        }));
+
+        setShowAddIllnessModal(false);
+        showToast('Riwayat diagnosis/sakit tersimpan');
+      };
+
+      // Document Upload Handling
+      const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 4 * 1024 * 1024) {
+          alert('Ukuran file maksimal 4MB');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setUploadPreviewUrl(reader.result);
+        };
+        reader.readAsDataURL(file);
+      };
+
+      const handleCreateDocument = (e) => {
+        e.preventDefault();
+        if (!uploadPreviewUrl) {
+          alert('Silakan ambil atau pilih foto berkas');
+          return;
+        }
+        const form = e.target;
+        const newDoc = {
+          id: 'doc-' + Date.now(),
+          title: form.docTitle.value.trim(),
+          category: form.category.value,
+          date: form.docDate.value,
+          issuer: form.issuer.value.trim() || 'Klinik / Dokter Mandiri',
+          notes: form.docNotes.value.trim(),
+          fileData: uploadPreviewUrl
+        };
+
+        setMembers(prev => prev.map(m => {
+          if (m.id === selectedMemberId) {
+            return { ...m, documents: [newDoc, ...(m.documents || [])] };
+          }
+          return m;
+        }));
+
+        setShowAddDocumentModal(false);
+        setUploadPreviewUrl(null);
+        showToast('Foto berkas medis berhasil diunggah!');
+      };
+
+      const handleDeleteDocument = (docId) => {
+        if (!confirm('Hapus berkas ini?')) return;
+        setMembers(prev => prev.map(m => {
+          if (m.id === selectedMemberId) {
+            return { ...m, documents: (m.documents || []).filter(d => d.id !== docId) };
+          }
+          return m;
+        }));
+        if (showDocumentPreview?.id === docId) setShowDocumentPreview(null);
+        showToast('Berkas berhasil dihapus');
+      };
+
+      // Hapus Anggota Keluarga
+      const handleDeleteMember = (memberId, memberName) => {
+        if (!confirm(`Hapus anggota keluarga "${memberName}" beserta seluruh riwayat cek dan berkasnya?`)) return;
+        setMembers(prev => prev.filter(m => m.id !== memberId));
+        if (selectedMemberId === memberId) {
+          setSelectedMemberId(null);
+        }
+        showToast(`Profil ${memberName} berhasil dihapus`);
+      };
+
+      // Hapus / Kosongkan Seluruh Data (Reset Data Dummy)
+      const handleClearAllData = () => {
+        if (!confirm('Apakah Anda yakin ingin menghapus SEMUA data anggota keluarga (termasuk rekam medis dan berkas dummy)?\n\nAplikasi akan dikosongkan agar Anda dapat mulai mengisi data keluarga asli Anda.')) return;
+        setMembers([]);
+        setSelectedMemberId(null);
+        showToast('Semua data berhasil dibersihkan! Silakan tambahkan anggota keluarga Anda.');
+      };
+
+      // Muat Ulang Data Contoh (Dummy)
+      const handleResetDemoData = () => {
+        if (!confirm('Muat ulang 3 data profil contoh (dummy) MedFam?')) return;
+        setMembers(INITIAL_MEMBERS);
+        setSelectedMemberId(null);
+        showToast('Data contoh (dummy) berhasil dimuat kembali');
+      };
+
+      // Hapus Pemeriksaan Fisik
+      const handleDeleteCheckup = (checkupId) => {
+        if (!confirm('Hapus rekam pemeriksaan ini?')) return;
+        setMembers(prev => prev.map(m => {
+          if (m.id === selectedMemberId) {
+            return { ...m, checkups: m.checkups.filter(c => c.id !== checkupId) };
+          }
+          return m;
+        }));
+        showToast('Rekam pemeriksaan berhasil dihapus');
+      };
+
+      // Hapus Riwayat Sakit
+      const handleDeleteIllness = (illnessId) => {
+        if (!confirm('Hapus catatan riwayat sakit ini?')) return;
+        setMembers(prev => prev.map(m => {
+          if (m.id === selectedMemberId) {
+            return { ...m, illnesses: m.illnesses.filter(i => i.id !== illnessId) };
+          }
+          return m;
+        }));
+        showToast('Catatan riwayat sakit berhasil dihapus');
+      };
+
+      // Export CSV
+      const handleExportCSV = () => {
+        if (!selectedMember) return;
+        let csv = `data:text/csv;charset=utf-8,MEDFAM - LAPORAN KESEHATAN KELUARGA\n`;
+        csv += `Nama: ${selectedMember.name}, Usia: ${calculateAge(selectedMember.dob)} Thn, Gol: ${selectedMember.bloodType}\n\n`;
+        csv += `Tanggal,Gula Darah (mg/dL),Tensi Sistolik,Tensi Diastolik,Kolesterol,Berat (kg),Catatan\n`;
+        selectedMember.checkups.forEach(c => {
+          csv += `"${c.date}","${c.bloodSugar || '-'}","${c.bpSystolic || '-'}","${c.bpDiastolic || '-'}","${c.cholesterol || '-'}","${c.weight || '-'}","${(c.customNotes || '').replace(/"/g, '""')}"\n`;
+        });
+        const uri = encodeURI(csv);
+        const link = document.createElement("a");
+        link.href = uri;
+        link.download = `MedFam_${selectedMember.name.replace(/\s+/g, '_')}.csv`;
+        link.click();
+        showToast('Data CSV berhasil diunduh');
+      };
+
+      // Backup JSON
+      const handleDownloadBackup = () => {
+        const exportData = {
+          application: 'MedFam',
+          version: '2.0.0',
+          exportedAt: new Date().toISOString(),
+          data: members
+        };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `MedFam_Cadangan_Data_${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        showToast('File backup MedFam (.json) berhasil diunduh');
+      };
+
+      // Restore JSON
+      const handleRestoreBackup = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const parsed = JSON.parse(event.target.result);
+            const list = parsed.data || parsed;
+            if (Array.isArray(list) && list.length > 0) {
+              if (confirm(`Pulihkan ${list.length} profil keluarga dari file cadangan ini?`)) {
+                setMembers(list);
+                setShowBackupModal(false);
+                showToast('Data MedFam berhasil dipulihkan!');
+              }
+            } else {
+              alert('Format file cadangan tidak valid');
+            }
+          } catch (err) {
+            alert('Gagal membaca file cadangan');
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      // Analytics Insights
+      const latestCheck = selectedMember?.checkups?.[0];
+      const insights = useMemo(() => {
+        if (!latestCheck) return [];
+        const res = [];
+        const sugar = evaluateBloodSugar(latestCheck.bloodSugar);
+        const bp = evaluateBloodPressure(latestCheck.bpSystolic, latestCheck.bpDiastolic);
+        const chol = evaluateCholesterol(latestCheck.cholesterol);
+
+        if (sugar && sugar.level === 'high') {
+          res.push({ title: 'Gula Darah Tinggi', desc: `GDS ${latestCheck.bloodSugar} mg/dL (target normal ≤140). Kurangi gula murni & periksa HbA1c.` });
+        } else if (sugar && sugar.level === 'warning') {
+          res.push({ title: 'Indikasi Pre-Diabetes', desc: 'Nilai gula darah di batas atas. Perbanyak gerak fisik dan batasi karbohidrat tinggi olahan.' });
+        }
+        if (bp && bp.level === 'high') {
+          res.push({ title: 'Tekanan Darah Tinggi', desc: `Tensi ${latestCheck.bpSystolic}/${latestCheck.bpDiastolic} mmHg melebihi standar aman. Batasi asupan garam.` });
+        }
+        if (chol && chol.level === 'high') {
+          res.push({ title: 'Kolesterol Total Meningkat', desc: `Nilai ${latestCheck.cholesterol} mg/dL. Tingkatkan konsumsi sayur, oat, dan kurangi gorengan.` });
+        }
+        if (res.length === 0) {
+          res.push({ title: 'Semua Parameter Normal', desc: 'Indikator pemeriksaan terakhir dalam rentang aman standar Kemenkes RI.' });
+        }
+        return res;
+      }, [latestCheck]);
+
+      return (
+        <div className="w-full max-w-[420px] min-h-[844px] bg-slate-50 text-slate-800 rounded-none sm:rounded-[40px] shadow-2xl overflow-hidden border-0 sm:border-[8px] sm:border-slate-800 flex flex-col relative transition-all">
+          
+          {/* Top Notch Accent */}
+          <div className="hidden sm:flex justify-center pt-2 pb-1 bg-slate-800 select-none">
+            <div className="w-20 h-4 bg-slate-900 rounded-full flex items-center justify-end px-2 space-x-1">
+              <div className="w-2 h-2 rounded-full bg-slate-800"></div>
+              <div className="w-1.5 h-1.5 rounded-full bg-teal-500/40"></div>
+            </div>
+          </div>
+
+          {/* PIN SECURITY LOCK OVERLAY */}
+          {(isLocked || isPinSetup) && (
+            <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-xl z-50 flex flex-col items-center justify-center p-6 text-white animate-in fade-in duration-200 select-none">
+              <div className="w-16 h-16 rounded-3xl bg-teal-500/20 text-teal-400 flex items-center justify-center mb-3 shadow-lg shadow-teal-500/20 border border-teal-500/30">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+
+              <h2 className="text-lg font-bold tracking-tight text-white">
+                {isPinSetup ? (isChangingPin ? 'Ubah PIN MedFam' : 'Buat PIN Akses MedFam') : 'Keamanan MedFam'}
+              </h2>
+              <p className="text-xs text-slate-400 mt-1 text-center max-w-[240px]">
+                {isPinSetup
+                  ? (pinStep === 1 ? 'Langkah 1: Tentukan 4 digit PIN baru' : 'Langkah 2: Masukkan kembali PIN untuk konfirmasi')
+                  : 'Masukkan 4 digit PIN keluarga untuk membuka catatan kesehatan'}
+              </p>
+
+              <div className="bg-teal-900/40 border border-teal-500/40 rounded-2xl px-4 py-2 mt-3 text-center w-full max-w-[260px]">
+                <span className="text-[10px] font-bold text-teal-300 uppercase tracking-wider block">Mode Demo Portofolio</span>
+                <p className="text-xs text-slate-200 mt-0.5">PIN Demo: <span className="font-mono font-bold text-teal-300 bg-teal-950 px-2 py-0.5 rounded border border-teal-500/30">1234</span></p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsLocked(false);
+                    setIsPinSetup(false);
+                    setPinBuffer('');
+                    showToast('Selamat datang di Demo MedFam!');
+                  }}
+                  className="mt-1.5 text-[11px] font-semibold text-teal-400 hover:text-white underline block mx-auto"
+                >
+                  ⚡ Langsung Buka Demo (1234)
+                </button>
+              </div>
+
+              {/* Dots */}
+              <div className="flex items-center gap-3.5 my-6">
+                {[0, 1, 2, 3].map(idx => (
+                  <div
+                    key={idx}
+                    className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
+                      idx < pinBuffer.length
+                        ? 'bg-teal-400 border-teal-400 scale-125 shadow-lg shadow-teal-400/50'
+                        : 'border-slate-600 bg-transparent'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {pinError && (
+                <p className="text-xs text-rose-400 font-semibold mb-3 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 animate-pulse">
+                  {pinError}
+                </p>
+              )}
+
+              {/* Numeric Keypad */}
+              <div className="grid grid-cols-3 gap-3 w-full max-w-[260px]">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => handlePinPress(num)}
+                    className="h-14 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 active:bg-teal-600 text-xl font-bold text-white transition-all shadow-md flex items-center justify-center border border-slate-700/50"
+                  >
+                    {num}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPinBuffer('');
+                    setPinError('');
+                  }}
+                  className="h-14 rounded-2xl bg-slate-900/60 hover:bg-slate-800 text-xs font-bold text-slate-400 active:scale-95 transition-all flex items-center justify-center border border-slate-800"
+                >
+                  CLEAR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePinPress(0)}
+                  className="h-14 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 active:bg-teal-600 text-xl font-bold text-white transition-all shadow-md flex items-center justify-center border border-slate-700/50"
+                >
+                  0
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (pinBuffer.length > 0) setPinBuffer(pinBuffer.slice(0, -1));
+                  }}
+                  className="h-14 rounded-2xl bg-slate-900/60 hover:bg-slate-800 text-lg font-bold text-slate-400 active:scale-95 transition-all flex items-center justify-center border border-slate-800"
+                >
+                  ⌫
+                </button>
+              </div>
+
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Atur ulang PIN keamanan MedFam?')) {
+                      localStorage.removeItem('family_pin_hash');
+                      localStorage.removeItem('pin_failed_attempts');
+                      localStorage.removeItem('pin_lockout_until');
+                      setPinHash(null);
+                      setIsPinSetup(true);
+                      setPinStep(1);
+                      setPinBuffer('');
+                      setPinError('');
+                      setTempNewPin('');
+                    }
+                  }}
+                  className="text-[11px] text-teal-400/80 hover:text-teal-300 underline transition-colors cursor-pointer"
+                >
+                  Lupa / Atur Ulang PIN
+                </button>
+                <div className="text-[10px] text-slate-500 flex items-center gap-1.5">
+                  <span>🔒</span> Terenkripsi SHA-256 standar industri
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Toast Notification */}
+          {toastMessage && (
+            <div className="absolute top-14 left-4 right-4 z-50 bg-slate-900/95 text-white px-3.5 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 text-xs font-semibold backdrop-blur animate-in fade-in duration-200">
+              <svg className="w-4 h-4 text-teal-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>{toastMessage}</span>
+            </div>
+          )}
+
+          {/* APP HEADER */}
+          <header className="bg-white/95 backdrop-blur-md px-4 pt-3.5 pb-3 border-b border-slate-200 sticky top-0 z-20 flex items-center justify-between">
+            {selectedMemberId ? (
+              <div className="flex items-center space-x-2.5 overflow-hidden">
+                <button
+                  onClick={() => setSelectedMemberId(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 flex items-center justify-center shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div className="truncate">
+                  <h1 className="text-sm font-bold text-slate-900 leading-tight flex items-center gap-1.5 truncate">
+                    <span className="truncate">{selectedMember?.name}</span>
+                    <span className="text-[10px] font-medium px-1.5 py-0.2 rounded-md bg-teal-50 text-teal-700 border border-teal-200 shrink-0">
+                      {selectedMember?.relation}
+                    </span>
+                  </h1>
+                  <p className="text-[11px] text-slate-500 font-medium truncate">
+                    {calculateAge(selectedMember?.dob)} Thn • {selectedMember?.gender} • Gol. {selectedMember?.bloodType}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-7 h-7 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-md shadow-teal-500/30">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </div>
+                  <span className="text-lg font-black tracking-tight text-slate-900">
+                    Med<span className="text-teal-600">Fam</span>
+                  </span>
+                  <span className="text-[9px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
+                    DEMO
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-slate-500 font-medium">Pemantauan Kesehatan Keluarga & Berkas</p>
+              </div>
+            )}
+
+            {/* Header Right Actions */}
+            <div className="flex items-center space-x-1 shrink-0">
+              {selectedMemberId ? (
+                <div className="flex items-center space-x-1">
+                  <button
+                    onClick={() => setShowExportReportModal(true)}
+                    className="px-2.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-semibold flex items-center gap-1 border border-teal-200"
+                  >
+                    <svg className="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Resume PDF
+                  </button>
+                  <button
+                    onClick={handleExportCSV}
+                    title="Ekspor CSV"
+                    className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteMember(selectedMember.id, selectedMember.name)}
+                    title={`Hapus Profil ${selectedMember.name}`}
+                    className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center border border-rose-200"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-1.5">
+                  {/* Cloud Badge */}
+                  <button
+                    onClick={() => setShowBackupModal(true)}
+                    className={`px-2 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 border transition-all ${
+                      isSupabaseConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'
+                    }`}
+                    title={cloudStatusText}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${isSupabaseConnected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
+                    <span>{isSupabaseConnected ? 'Cloud' : 'Lokal'}</span>
+                  </button>
+
+                  {/* Lock Button */}
+                  <button
+                    onClick={() => {
+                      if (pinHash) {
+                        setIsLocked(true);
+                        setPinBuffer('');
+                        setPinError('');
+                      } else {
+                        setIsPinSetup(true);
+                        setPinStep(1);
+                      }
+                    }}
+                    className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center transition-all"
+                    title="Kunci MedFam"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </button>
+
+                  <button
+                    onClick={() => setShowBackupModal(true)}
+                    className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center"
+                    title="Cadangan & Pulihkan Data"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M4 7c0-2 1-3 3-3h10c2 0 3 1 3 3M4 7h16m-7 4v6m-3-3h6" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setShowDisclaimerInfo(true)}
+                    className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center"
+                    title="Pedoman Medis"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* MAIN SCROLLABLE BODY */}
+          <main className="flex-1 overflow-y-auto px-4 py-3.5 space-y-4 no-scrollbar">
+
+            {/* DASHBOARD VIEW */}
+            {!selectedMemberId && (
+              <div className="space-y-4">
+                {/* Banner Summary */}
+                <div className="bg-gradient-to-br from-teal-700 via-teal-800 to-slate-900 rounded-3xl p-5 text-white shadow-xl shadow-teal-900/10 relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold tracking-wider uppercase text-teal-200 bg-white/10 px-2.5 py-1 rounded-full">
+                      Buku Rekam Medis MedFam
+                    </span>
+                    <button
+                      onClick={() => setShowBackupModal(true)}
+                      className="text-[10px] bg-white/15 hover:bg-white/25 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all"
+                    >
+                      <svg className="w-3 h-3 text-teal-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                      </svg>
+                      Backup & Restore
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-2.5">
+                    {isEditingFamilyName ? (
+                      <div className="flex items-center gap-1.5 w-full">
+                        <input
+                          type="text"
+                          value={familyName}
+                          onChange={(e) => setFamilyName(e.target.value)}
+                          className="px-2.5 py-1 text-sm rounded-xl text-slate-900 font-bold bg-white flex-1 outline-none"
+                          placeholder="Nama Keluarga"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            localStorage.setItem('medfam_family_name', familyName.trim() || 'Keluarga');
+                            setIsEditingFamilyName(false);
+                            showToast('Nama keluarga diperbarui');
+                          }}
+                          className="px-2.5 py-1 bg-teal-500 hover:bg-teal-400 text-white text-xs font-semibold rounded-xl"
+                        >
+                          Simpan
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-xl font-bold tracking-tight">{familyName}</h2>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingFamilyName(true)}
+                          className="text-teal-200 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                          title="Ubah nama keluarga"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-teal-100/90 mt-0.5">
+                    {members.length} Anggota Keluarga • Pantau berkala & simpan resep
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-white/15">
+                    <div className="bg-white/10 rounded-xl p-2 text-center">
+                      <span className="block text-lg font-bold text-white">{members.length}</span>
+                      <span className="text-[10px] text-teal-200 font-medium">Anggota</span>
+                    </div>
+                    <div className="bg-white/10 rounded-xl p-2 text-center">
+                      <span className="block text-lg font-bold text-white">
+                        {members.reduce((acc, m) => acc + (m.checkups ? m.checkups.length : 0), 0)}
+                      </span>
+                      <span className="text-[10px] text-teal-200 font-medium">Rekam Cek</span>
+                    </div>
+                    <div className="bg-white/10 rounded-xl p-2 text-center">
+                      <span className="block text-lg font-bold text-teal-300">
+                        {members.reduce((acc, m) => acc + (m.documents ? m.documents.length : 0), 0)}
+                      </span>
+                      <span className="text-[10px] text-teal-200 font-medium">Foto Berkas</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Member List Header */}
+                <div className="flex items-center justify-between pt-1">
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-800">Daftar Anggota Keluarga</h2>
+                    <p className="text-[11px] text-slate-500">Pilih anggota untuk melihat rekam & foto berkas</p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {members.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllData}
+                        className="text-[11px] font-semibold text-rose-500 hover:text-rose-700 flex items-center gap-1 active:scale-95 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors border border-rose-100"
+                        title="Kosongkan seluruh data dummy"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Hapus Dummy
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowAddMemberModal(true)}
+                      className="text-xs font-semibold text-teal-600 hover:text-teal-700 flex items-center gap-1 active:scale-95"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                      </svg>
+                      Tambah
+                    </button>
+                  </div>
+                </div>
+
+                {/* Member Cards / Empty State */}
+                {members.length === 0 ? (
+                  <div className="bg-white rounded-3xl p-7 text-center border-2 border-dashed border-slate-200 space-y-3 shadow-sm">
+                    <div className="w-14 h-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto shadow-inner">
+                      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">Data Keluarga Masih Kosong</h3>
+                      <p className="text-xs text-slate-500 mt-1 max-w-[260px] mx-auto leading-relaxed">
+                        Data contoh telah dibersihkan. Tambahkan profil anggota keluarga Anda untuk mulai mencatat riwayat gula darah, tensi, dan resep dokter.
+                      </p>
+                    </div>
+                    <div className="pt-2 flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddMemberModal(true)}
+                        className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-md shadow-teal-600/30 flex items-center justify-center gap-1.5"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                        </svg>
+                        + Tambah Anggota Pertama
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetDemoData}
+                        className="text-[11px] text-slate-400 hover:text-teal-600 underline pt-1"
+                      >
+                        Muat kembali data contoh (dummy)
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {members.map(member => {
+                      const lastCheck = member.checkups ? member.checkups[0] : null;
+                      const lastSugar = lastCheck?.bloodSugar ? evaluateBloodSugar(lastCheck.bloodSugar) : null;
+                      const lastBp = lastCheck ? evaluateBloodPressure(lastCheck.bpSystolic, lastCheck.bpDiastolic) : null;
+                      const docCount = member.documents ? member.documents.length : 0;
+
+                      return (
+                        <div
+                          key={member.id}
+                          onClick={() => {
+                            setSelectedMemberId(member.id);
+                            setActiveTab('checkups');
+                          }}
+                          className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm hover:shadow-md hover:border-teal-300 transition-all cursor-pointer group active:scale-[0.99]"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${member.avatarColor} text-white flex items-center justify-center font-bold text-lg shadow-sm`}>
+                                {member.name.charAt(0)}
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-bold text-slate-900 group-hover:text-teal-700 transition-colors flex items-center gap-1.5">
+                                  {member.name}
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                    {member.relation}
+                                  </span>
+                                </h3>
+                                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                                  {calculateAge(member.dob)} Thn • {member.gender} • Gol. {member.bloodType}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteMember(member.id, member.name);
+                                }}
+                                title={`Hapus ${member.name}`}
+                                className="w-7 h-7 rounded-full bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                              <div className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-teal-600 group-hover:bg-teal-50">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M9 5l7 7-7 7" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Recent values preview */}
+                          <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                            <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
+                              <span className="text-[10px] text-slate-400 block font-medium">Gula Darah Terakhir</span>
+                              <div className="flex items-center justify-between mt-0.5">
+                                <span className="font-bold text-slate-800">{lastCheck?.bloodSugar ? `${lastCheck.bloodSugar} mg/dL` : '-'}</span>
+                                {lastSugar && <StatusBadge evaluation={lastSugar} />}
+                              </div>
+                            </div>
+                            <div className="bg-slate-50 rounded-xl p-2 border border-slate-100">
+                              <span className="text-[10px] text-slate-400 block font-medium">Tekanan Darah</span>
+                              <div className="flex items-center justify-between mt-0.5">
+                                <span className="font-bold text-slate-800">{lastCheck?.bpSystolic ? `${lastCheck.bpSystolic}/${lastCheck.bpDiastolic}` : '-'}</span>
+                                {lastBp && <StatusBadge evaluation={lastBp} />}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Footer card info */}
+                          <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-dashed border-slate-100">
+                            <div className="flex items-center gap-2">
+                              <span>{member.checkups ? member.checkups.length : 0} Cek</span>
+                              <span>•</span>
+                              <span className="text-teal-700 font-semibold flex items-center gap-1">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                {docCount} Berkas Lab/Resep
+                              </span>
+                            </div>
+                            <span className="text-teal-600 font-bold group-hover:underline">Buka Rekam →</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Primary Add Button */}
+                <button
+                  onClick={() => setShowAddMemberModal(true)}
+                  className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 active:scale-[0.98] text-white rounded-2xl font-semibold text-sm shadow-lg shadow-teal-600/25 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Tambah Anggota Keluarga
+                </button>
+              </div>
+            )}
+
+            {/* MEMBER DETAIL VIEW */}
+            {selectedMemberId && selectedMember && (
+              <div className="space-y-4">
+                
+                {/* 4 Tabs Navigation */}
+                <div className="grid grid-cols-4 bg-slate-200/90 p-1 rounded-2xl text-[11px] font-semibold text-slate-600 gap-0.5">
+                  <button
+                    onClick={() => setActiveTab('checkups')}
+                    className={`py-2 rounded-xl transition-all ${activeTab === 'checkups' ? 'bg-white text-teal-800 shadow-sm font-bold' : 'hover:text-slate-900'}`}
+                  >
+                    Hasil Cek
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('documents')}
+                    className={`py-2 rounded-xl transition-all flex items-center justify-center gap-1 ${activeTab === 'documents' ? 'bg-white text-teal-800 shadow-sm font-bold' : 'hover:text-slate-900'}`}
+                  >
+                    Berkas
+                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-teal-100 text-teal-800">
+                      {(selectedMember.documents || []).length}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('illnesses')}
+                    className={`py-2 rounded-xl transition-all ${activeTab === 'illnesses' ? 'bg-white text-teal-800 shadow-sm font-bold' : 'hover:text-slate-900'}`}
+                  >
+                    Riwayat
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('analytics')}
+                    className={`py-2 rounded-xl transition-all ${activeTab === 'analytics' ? 'bg-white text-teal-800 shadow-sm font-bold' : 'hover:text-slate-900'}`}
+                  >
+                    Saran Medis
+                  </button>
+                </div>
+
+                {/* TAB 1: CHECKUPS & CHART */}
+                {activeTab === 'checkups' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-700">Tren Indikator Kesehatan</span>
+                      <button
+                        onClick={() => setShowAddCheckupModal(true)}
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-teal-600/30"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Catat Cek Baru
+                      </button>
+                    </div>
+
+                    {/* Chart Box */}
+                    <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-sm">
+                      <div className="flex gap-1 overflow-x-auto pb-2 no-scrollbar">
+                        {[
+                          { key: 'bloodSugar', label: 'Gula Darah' },
+                          { key: 'bpSystolic', label: 'Tensi' },
+                          { key: 'cholesterol', label: 'Kolesterol' },
+                          { key: 'weight', label: 'Berat Badan' },
+                        ].map(m => (
+                          <button
+                            key={m.key}
+                            onClick={() => setActiveMetricTab(m.key)}
+                            className={`px-3 py-1 rounded-xl text-[11px] font-semibold whitespace-nowrap ${
+                              activeMetricTab === m.key
+                                ? 'bg-teal-50 text-teal-800 border border-teal-200'
+                                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="mt-2 pt-2 border-t border-slate-100">
+                        <SimpleLineChart
+                          data={selectedMember.checkups}
+                          metricKey={activeMetricTab}
+                          color={activeMetricTab === 'bloodSugar' ? '#0d9488' : activeMetricTab === 'bpSystolic' ? '#e11d48' : '#d97706'}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Historical List */}
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        Riwayat Pemeriksaan ({selectedMember.checkups.length})
+                      </h3>
+
+                      {selectedMember.checkups.map(check => {
+                        const sugarEval = evaluateBloodSugar(check.bloodSugar);
+                        const bpEval = evaluateBloodPressure(check.bpSystolic, check.bpDiastolic);
+                        const cholEval = evaluateCholesterol(check.cholesterol);
+
+                        return (
+                          <div key={check.id} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-2.5">
+                            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                              <span className="text-xs font-bold text-slate-800">
+                                {new Date(check.date).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-slate-400 font-medium">Pemeriksaan Rutin</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCheckup(check.id)}
+                                  title="Hapus rekam pemeriksaan ini"
+                                  className="w-5 h-5 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-150">
+                                <div className="flex justify-between items-start">
+                                  <span className="text-[10px] font-medium text-slate-500">Gula Darah</span>
+                                  {sugarEval && <StatusBadge evaluation={sugarEval} />}
+                                </div>
+                                <div className="mt-1 font-extrabold text-slate-900 text-sm">
+                                  {check.bloodSugar ? `${check.bloodSugar} mg/dL` : '-'}
+                                </div>
+                              </div>
+                              <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-150">
+                                <div className="flex justify-between items-start">
+                                  <span className="text-[10px] font-medium text-slate-500">Tekanan Darah</span>
+                                  {bpEval && <StatusBadge evaluation={bpEval} />}
+                                </div>
+                                <div className="mt-1 font-extrabold text-slate-900 text-sm">
+                                  {check.bpSystolic ? `${check.bpSystolic}/${check.bpDiastolic}` : '-'}
+                                </div>
+                              </div>
+                            </div>
+
+                            {check.customNotes && (
+                              <p className="text-[11px] text-slate-600 bg-amber-50/70 p-2 rounded-xl border border-amber-100">
+                                <strong>Catatan:</strong> {check.customNotes}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: BERKAS MEDIS & FOTO RESEP (NEW) */}
+                {activeTab === 'documents' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-800">Berkas Medis & Resep Fisik</h3>
+                        <p className="text-[11px] text-slate-500">Foto hasil lab, resep dokter, dan dokumen kontrol</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setUploadPreviewUrl(null);
+                          setShowAddDocumentModal(true);
+                        }}
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-teal-600/30"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Unggah Foto
+                      </button>
+                    </div>
+
+                    {(!selectedMember.documents || selectedMember.documents.length === 0) ? (
+                      <div className="bg-white rounded-3xl p-8 text-center border border-dashed border-slate-300">
+                        <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto mb-2">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-800">Belum Ada Berkas</h4>
+                        <p className="text-xs text-slate-500 mt-1 max-w-[220px] mx-auto">
+                          Simpan foto struk resep dokter dan lembar hasil lab agar tidak tercecer saat kontrol.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setUploadPreviewUrl(null);
+                            setShowAddDocumentModal(true);
+                          }}
+                          className="mt-3 px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-semibold"
+                        >
+                          + Unggah Foto Pertama
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {selectedMember.documents.map(doc => (
+                          <div key={doc.id} className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex gap-3">
+                            <div
+                              onClick={() => setShowDocumentPreview(doc)}
+                              className="w-20 h-24 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200 cursor-pointer relative group"
+                            >
+                              <img src={doc.fileData} alt={doc.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                              </div>
+                            </div>
+
+                            <div className="flex-1 min-w-0 flex flex-col justify-between">
+                              <div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200">
+                                    {doc.category}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    {new Date(doc.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                                  </span>
+                                </div>
+                                <h4 className="text-xs font-bold text-slate-900 mt-1 truncate">{doc.title}</h4>
+                                <p className="text-[11px] text-slate-500 font-medium truncate">{doc.issuer}</p>
+                                {doc.notes && <p className="text-[10px] text-slate-600 line-clamp-1 mt-0.5">{doc.notes}</p>}
+                              </div>
+
+                              <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                                <button
+                                  onClick={() => setShowDocumentPreview(doc)}
+                                  className="text-[11px] font-bold text-teal-600 hover:text-teal-700"
+                                >
+                                  Lihat Foto →
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteDocument(doc.id)}
+                                  className="text-[11px] text-rose-500 hover:text-rose-700"
+                                >
+                                  Hapus
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 3: ILLNESS */}
+                {activeTab === 'illnesses' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-800">Riwayat Penyakit & Terapi</h3>
+                        <p className="text-[11px] text-slate-500">Catatan penyakit kronis atau diagnosis dokter</p>
+                      </div>
+                      <button
+                        onClick={() => setShowAddIllnessModal(true)}
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1"
+                      >
+                        + Catat Sakit
+                      </button>
+                    </div>
+
+                    {selectedMember.illnesses.length === 0 ? (
+                      <div className="bg-white rounded-2xl p-6 text-center border border-dashed border-slate-300">
+                        <p className="text-xs text-slate-500">Belum ada catatan riwayat penyakit.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {selectedMember.illnesses.map(ill => (
+                          <div key={ill.id} className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-sm">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="text-xs font-bold text-slate-900">{ill.name}</h4>
+                                <p className="text-[11px] text-slate-500 mt-0.5">
+                                  Mulai: {new Date(ill.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${!ill.endDate ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+                                  {!ill.endDate ? 'Sedang Dialami' : 'Sembuh'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteIllness(ill.id)}
+                                  title="Hapus riwayat sakit ini"
+                                  className="w-5 h-5 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              Mulai: {new Date(ill.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                            {ill.notes && (
+                              <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-xl mt-2 border border-slate-100">
+                                <strong>Keterangan:</strong> {ill.notes}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 4: CLINICAL INSIGHTS */}
+                {activeTab === 'analytics' && (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800">
+                      <p className="font-bold text-[11px]">DISCLAIMER MEDFAM:</p>
+                      <p className="text-[11px] mt-0.5 leading-relaxed">
+                        Evaluasi ini adalah pemantauan mandiri sesuai panduan PERKENI & Kemenkes RI, bukan pengganti diagnosis resmi tenaga medis profesional.
+                      </p>
+                    </div>
+
+                    {insights.map((ins, idx) => (
+                      <div key={idx} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-1">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200">
+                          Saran MedFam
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900 mt-1">{ins.title}</h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">{ins.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+              </div>
+            )}
+
+          </main>
+
+          {/* BOTTOM BAR NAVIGATION */}
+          <footer className="bg-white border-t border-slate-200 px-4 py-2.5 flex items-center justify-around text-slate-500 text-[10px] font-medium z-10 select-none">
+            <button
+              onClick={() => setSelectedMemberId(null)}
+              className={`flex flex-col items-center space-y-1 ${!selectedMemberId ? 'text-teal-600 font-bold' : 'hover:text-slate-900'}`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span>Beranda</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (members.length > 0) {
+                  if (!selectedMemberId) setSelectedMemberId(members[0].id);
+                  setShowAddCheckupModal(true);
+                } else {
+                  setShowAddMemberModal(true);
+                  showToast('Tambahkan anggota keluarga terlebih dahulu');
+                }
+              }}
+              className="flex flex-col items-center space-y-1 hover:text-teal-600"
+            >
+              <div className="w-8 h-8 rounded-full bg-teal-600 text-white flex items-center justify-center -mt-4 shadow-md shadow-teal-600/40">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <span className="text-teal-700 font-bold">Catat Cepat</span>
+            </button>
+
+            <button
+              onClick={() => setShowBackupModal(true)}
+              className="flex flex-col items-center space-y-1 hover:text-slate-900"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+              </svg>
+              <span>Cadangan</span>
+            </button>
+
+            <button
+              onClick={() => setShowDisclaimerInfo(true)}
+              className="flex flex-col items-center space-y-1 hover:text-slate-900"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Pedoman</span>
+            </button>
+          </footer>
+
+          {/* ============ MODALS ============ */}
+
+          {/* 1. Modal Unggah Berkas Medis */}
+          {showAddDocumentModal && (
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+              <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[92vh] overflow-y-auto no-scrollbar">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Unggah Berkas Medis</h3>
+                    <p className="text-[11px] text-teal-600 font-semibold">{selectedMember?.name}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowAddDocumentModal(false);
+                      setUploadPreviewUrl(null);
+                    }}
+                    className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateDocument} className="mt-3 space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Foto Berkas / Resep / Lab</label>
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer ${
+                        uploadPreviewUrl ? 'border-teal-400 bg-teal-50/30' : 'border-slate-300 bg-slate-50'
+                      }`}
+                    >
+                      {uploadPreviewUrl ? (
+                        <div className="space-y-1">
+                          <img src={uploadPreviewUrl} alt="Preview" className="max-h-36 mx-auto rounded-lg object-contain shadow-sm" />
+                          <p className="text-[11px] text-teal-700 font-semibold">Foto siap. Klik untuk ganti.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1 py-2">
+                          <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center mx-auto">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </div>
+                          <p className="text-xs font-bold text-slate-800">Ambil Foto / Pilih dari Galeri</p>
+                          <p className="text-[10px] text-slate-400">JPG, PNG, atau WebP</p>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Judul Dokumen</label>
+                    <input
+                      name="docTitle"
+                      type="text"
+                      required
+                      placeholder="Contoh: Resep Obat Tensi Amlodipine"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Kategori</label>
+                      <select name="category" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white">
+                        <option value="Hasil Lab">Hasil Lab</option>
+                        <option value="Resep Obat">Resep Obat</option>
+                        <option value="Rontgen/Scan">Rontgen / Scan</option>
+                        <option value="Surat Dokter">Surat Rujukan</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal</label>
+                      <input
+                        name="docDate"
+                        type="date"
+                        required
+                        defaultValue={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Klinik / Dokter Pemeriksa</label>
+                    <input
+                      name="issuer"
+                      type="text"
+                      placeholder="Contoh: dr. Hendra, Sp.PD / RSUD"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Catatan</label>
+                    <textarea
+                      name="docNotes"
+                      rows="2"
+                      placeholder="Catatan dosis obat atau jadwal kontrol..."
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"
+                    ></textarea>
+                  </div>
+
+                  <div className="pt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddDocumentModal(false)}
+                      className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2.5 rounded-xl bg-teal-600 text-xs font-semibold text-white shadow-md shadow-teal-600/30"
+                    >
+                      Simpan Berkas
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* 2. Modal Pratinjau Berkas Zoom In */}
+          {showDocumentPreview && (
+            <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex flex-col justify-between p-4">
+              <div className="flex items-center justify-between text-white pb-3 border-b border-slate-700">
+                <div className="truncate pr-2">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-500/20 text-teal-300">
+                    {showDocumentPreview.category}
+                  </span>
+                  <h3 className="text-sm font-bold truncate mt-1">{showDocumentPreview.title}</h3>
+                </div>
+                <button
+                  onClick={() => setShowDocumentPreview(null)}
+                  className="w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="flex-1 flex items-center justify-center my-3 overflow-hidden rounded-2xl bg-black/40 p-2">
+                <img src={showDocumentPreview.fileData} alt={showDocumentPreview.title} className="max-h-[62vh] max-w-full object-contain rounded-lg shadow-2xl" />
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-white space-y-2">
+                {showDocumentPreview.notes && (
+                  <p className="text-[11px] text-slate-300 bg-slate-800 p-2 rounded-xl">
+                    <strong className="text-teal-300">Catatan:</strong> {showDocumentPreview.notes}
+                  </p>
+                )}
+                <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400">{showDocumentPreview.issuer}</span>
+                  <a
+                    href={showDocumentPreview.fileData}
+                    download={`MedFam_${showDocumentPreview.title.replace(/\s+/g, '_')}.png`}
+                    className="px-3 py-1.5 rounded-xl bg-teal-600 text-xs font-semibold text-white"
+                  >
+                    Unduh Foto
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Modal Resume Medis Lengkap Siap PDF/Cetak */}
+          {showExportReportModal && selectedMember && (
+            <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+              <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[92vh] overflow-y-auto no-scrollbar">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-900">Resume Medis MedFam</h3>
+                  <button onClick={() => setShowExportReportModal(false)} className="w-7 h-7 rounded-full bg-slate-100 text-slate-500">
+                    ✕
+                  </button>
+                </div>
+
+                <div className="mt-3 p-4 bg-slate-50 rounded-2xl border border-slate-200 text-slate-800 text-xs space-y-3">
+                  <div className="border-b border-slate-300 pb-2 flex justify-between">
+                    <div>
+                      <span className="font-extrabold text-sm text-teal-800">MedFam</span>
+                      <p className="text-[9px] text-slate-400">Ringkasan Kesehatan Mandiri</p>
+                    </div>
+                    <span className="text-[10px] text-slate-500">{new Date().toLocaleDateString('id-ID')}</span>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-[11px] space-y-1">
+                    <p className="font-bold text-slate-900">{selectedMember.name}</p>
+                    <p className="text-slate-600">Usia: {calculateAge(selectedMember.dob)} Thn • {selectedMember.gender} • Gol: {selectedMember.bloodType}</p>
+                  </div>
+
+                  {selectedMember.checkups[0] && (
+                    <div className="space-y-1 text-[11px]">
+                      <span className="font-bold text-slate-800">Pemeriksaan Terakhir:</span>
+                      <div className="flex justify-between py-1 border-b border-slate-200">
+                        <span>Gula Darah (GDS)</span>
+                        <span className="font-bold">{selectedMember.checkups[0].bloodSugar || '-'} mg/dL</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-slate-200">
+                        <span>Tekanan Darah</span>
+                        <span className="font-bold">{selectedMember.checkups[0].bpSystolic ? `${selectedMember.checkups[0].bpSystolic}/${selectedMember.checkups[0].bpDiastolic}` : '-'}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-slate-200">
+                        <span>Kolesterol Total</span>
+                        <span className="font-bold">{selectedMember.checkups[0].cholesterol || '-'} mg/dL</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1 text-[11px]">
+                    <span className="font-bold text-slate-800">Berkas Medis Terlampir ({selectedMember.documents?.length || 0}):</span>
+                    <div className="flex flex-wrap gap-1">
+                      {(selectedMember.documents || []).map((d, i) => (
+                        <span key={i} className="text-[9px] bg-slate-200 px-2 py-0.5 rounded-full">{d.title}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md shadow-teal-600/30 flex items-center justify-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Cetak / Simpan ke PDF Sekarang
+                  </button>
+                  <button
+                    onClick={handleExportCSV}
+                    className="w-full py-2 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold"
+                  >
+                    Unduh Format CSV
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. Modal Backup, Cloud & Keamanan */}
+          {showBackupModal && (
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+              <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto no-scrollbar">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M4 7c0-2 1-3 3-3h10c2 0 3 1 3 3M4 7h16m-7 4v6m-3-3h6" />
+                    </svg>
+                    Cadangan & Cloud Database
+                  </h3>
+                  <button onClick={() => setShowBackupModal(false)} className="w-7 h-7 rounded-full bg-slate-100 text-slate-500">
+                    ✕
+                  </button>
+                </div>
+
+                {/* Sandbox Demo Card */}
+                <div className="p-3.5 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                      <span>🛡️</span> Mode Demo (Sandbox)
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                      Sandbox Portofolio
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Versi ini adalah <strong>Demo Portofolio</strong>. Semua data berjalan secara mandiri di memori browser Anda (Local Sandbox) dan 100% terisolasi dari database utama pengguna.
+                  </p>
+                </div>
+
+                {/* Cloud Supabase Card */}
+                <div className="p-3 bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-200 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+                      <span>⚡</span> Uji Database Sendiri (Opsional)
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isSupabaseConnected ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                      {isSupabaseConnected ? '🟢 Terhubung' : '⚪ Sandbox'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-teal-700">Pengunjung juga dapat menguji koneksi Supabase milik sendiri jika diinginkan.</p>
+                  
+                  <div className="space-y-1.5">
+                    <input
+                      type="url"
+                      id="supaUrlInput"
+                      defaultValue={supabaseUrl}
+                      placeholder="Supabase Project URL"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-teal-200 bg-white"
+                    />
+                    <input
+                      type="text"
+                      id="supaKeyInput"
+                      defaultValue={supabaseKey}
+                      placeholder="Supabase Anon Key"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-teal-200 bg-white"
+                    />
+                  </div>
+
+                  <div className="flex gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      disabled={isSyncingCloud}
+                      onClick={() => {
+                        const url = document.getElementById('supaUrlInput').value.trim();
+                        const key = document.getElementById('supaKeyInput').value.trim();
+                        handleSaveSupabase(url, key);
+                      }}
+                      className="flex-1 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold"
+                    >
+                      {isSyncingCloud ? 'Menghubungkan...' : 'Simpan & Hubungkan'}
+                    </button>
+                    {isSupabaseConnected && (
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          disabled={isSyncingCloud}
+                          onClick={handleSyncToCloud}
+                          className="py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold"
+                          title="Unggah data saat ini ke cloud"
+                        >
+                          ☁️ Upload
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSyncingCloud}
+                          onClick={handlePullFromCloud}
+                          className="py-1.5 px-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold"
+                          title="Tarik data terbaru dari cloud"
+                        >
+                          📥 Tarik Data
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* PIN Security Card */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <span>🔐</span> Keamanan PIN MedFam
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                      {pinHash ? 'PIN Aktif' : 'Belum Ada PIN'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">Lindungi riwayat medis keluarga Anda dari orang luar.</p>
+                  <div className="flex gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsChangingPin(true);
+                        setIsPinSetup(true);
+                        setPinStep(1);
+                        setPinBuffer('');
+                        setPinError('');
+                        setShowBackupModal(false);
+                      }}
+                      className="flex-1 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold"
+                    >
+                      🔑 {pinHash ? 'Ubah PIN' : 'Buat PIN'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLocked(true);
+                        setPinBuffer('');
+                        setShowBackupModal(false);
+                      }}
+                      className="py-1.5 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold"
+                    >
+                      🔒 Kunci
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-1">
+                  {/* Data Management / Reset Dummy */}
+                  <div className="p-3 bg-rose-50/60 border border-rose-200 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
+                        <span>🗑️</span> Kelola & Kosongkan Data
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-rose-700">
+                      Hapus data contoh (dummy) agar aplikasi siap diisi dengan data asli keluarga Anda.
+                    </p>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowBackupModal(false);
+                          handleClearAllData();
+                        }}
+                        className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-sm"
+                      >
+                        Hapus Semua Data
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowBackupModal(false);
+                          handleResetDemoData();
+                        }}
+                        className="py-1.5 px-2.5 bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 rounded-xl text-xs font-semibold"
+                        title="Muat ulang 3 data profil contoh"
+                      >
+                        Muat Ulang Dummy
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-teal-50/70 border border-teal-100 rounded-2xl space-y-2">
+                    <p className="text-xs font-bold text-teal-900">1. Unduh Cadangan File JSON</p>
+                    <p className="text-[11px] text-teal-700">Simpan seluruh profil, rekam cek, dan foto berkas dalam file JSON aman.</p>
+                    <button
+                      onClick={handleDownloadBackup}
+                      className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold"
+                    >
+                      Unduh File Backup (.json)
+                    </button>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                    <p className="text-xs font-bold text-slate-800">2. Pulihkan Data dari File Cadangan</p>
+                    <p className="text-[11px] text-slate-500">Pilih file JSON backup yang pernah diunduh sebelumnya.</p>
+                    <button
+                      onClick={() => backupFileInputRef.current?.click()}
+                      className="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold"
+                    >
+                      Pilih File Backup JSON
+                    </button>
+                    <input
+                      ref={backupFileInputRef}
+                      type="file"
+                      accept=".json,application/json"
+                      className="hidden"
+                      onChange={handleRestoreBackup}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 5. Modal Tambah Anggota */}
+          {showAddMemberModal && (
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+              <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-900">Tambah Anggota Keluarga</h3>
+                  <button onClick={() => setShowAddMemberModal(false)} className="w-7 h-7 rounded-full bg-slate-100 text-slate-500">✕</button>
+                </div>
+                <form onSubmit={handleCreateMember} className="mt-3 space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Lengkap</label>
+                    <input name="name" required placeholder="Contoh: Siti Aisyah" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal Lahir</label>
+                      <input name="dob" type="date" required className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Hubungan</label>
+                      <select name="relation" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white">
+                        <option value="Ayah">Ayah</option>
+                        <option value="Ibu">Ibu</option>
+                        <option value="Anak">Anak</option>
+                        <option value="Kakek">Kakek</option>
+                        <option value="Nenek">Nenek</option>
+                        <option value="Lainnya">Lainnya</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Jenis Kelamin</label>
+                      <select name="gender" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white">
+                        <option value="Pria">Pria</option>
+                        <option value="Wanita">Wanita</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Golongan Darah</label>
+                      <select name="bloodType" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white">
+                        <option value="A+">A+</option>
+                        <option value="B+">B+</option>
+                        <option value="AB+">AB+</option>
+                        <option value="O+">O+</option>
+                        <option value="Belum dicek">Belum dicek</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="submit" className="w-full py-2.5 mt-2 rounded-xl bg-teal-600 text-white text-xs font-semibold shadow-md shadow-teal-600/30">
+                    Simpan Profil MedFam
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* 6. Modal Tambah Cek Rutin */}
+          {showAddCheckupModal && (
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+              <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[92vh] overflow-y-auto no-scrollbar">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-900">Catat Hasil Pemeriksaan</h3>
+                  <button onClick={() => setShowAddCheckupModal(false)} className="w-7 h-7 rounded-full bg-slate-100 text-slate-500">✕</button>
+                </div>
+                <form onSubmit={handleCreateCheckup} className="mt-3 space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal Cek</label>
+                    <input name="checkupDate" type="date" defaultValue={new Date().toISOString().split('T')[0]} required className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Gula Darah (mg/dL)</label>
+                      <input name="bloodSugar" type="number" placeholder="110" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Kolesterol (mg/dL)</label>
+                      <input name="cholesterol" type="number" placeholder="190" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tensi Sistolik</label>
+                      <input name="bpSystolic" type="number" placeholder="120" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tensi Diastolik</label>
+                      <input name="bpDiastolic" type="number" placeholder="80" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Berat Badan (kg)</label>
+                      <input name="weight" type="number" step="0.1" placeholder="65" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tinggi Badan (cm)</label>
+                      <input name="height" type="number" placeholder="165" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Catatan Tambahan</label>
+                    <textarea name="customNotes" rows="2" placeholder="Setelah sarapan / keluhan tertentu..." className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"></textarea>
+                  </div>
+                  <button type="submit" className="w-full py-2.5 rounded-xl bg-teal-600 text-white text-xs font-semibold shadow-md shadow-teal-600/30">
+                    Simpan Hasil Cek
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* 7. Modal Catat Sakit */}
+          {showAddIllnessModal && (
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+              <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-900">Catat Riwayat Sakit</h3>
+                  <button onClick={() => setShowAddIllnessModal(false)} className="w-7 h-7 rounded-full bg-slate-100 text-slate-500">✕</button>
+                </div>
+                <form onSubmit={handleCreateIllness} className="mt-3 space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Penyakit / Diagnosis</label>
+                    <input name="illnessName" required placeholder="Contoh: Asam Lambung / Flu Berat" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal Mulai</label>
+                      <input name="startDate" type="date" required className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal Sembuh</label>
+                      <input name="endDate" type="date" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Keterangan / Terapi Obat</label>
+                    <textarea name="notes" rows="2" placeholder="Obat yang diberikan atau anjuran dokter..." className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"></textarea>
+                  </div>
+                  <button type="submit" className="w-full py-2.5 rounded-xl bg-teal-600 text-white text-xs font-semibold shadow-md shadow-teal-600/30">
+                    Simpan Riwayat
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* 8. Modal Pedoman MedFam */}
+          {showDisclaimerInfo && (
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-900">Pedoman Klinis MedFam</h3>
+                  <button onClick={() => setShowDisclaimerInfo(false)} className="w-7 h-7 rounded-full bg-slate-100 text-slate-500">✕</button>
+                </div>
+                <div className="text-xs text-slate-600 space-y-2">
+                  <p><strong>Gula Darah Sewaktu (GDS):</strong> Mengacu pada konsensus PERKENI 2021 (Normal: 90-140 mg/dL, Pre-Diabetes: 141-199 mg/dL).</p>
+                  <p><strong>Tekanan Darah:</strong> Mengacu pada standar JNC 8 & Kemenkes RI (Normal: ≤120/80 mmHg).</p>
+                  <p><strong>Kolesterol Total:</strong> Target rujukan optimal adalah &lt;200 mg/dL.</p>
+                  <div className="p-2.5 bg-teal-50 text-teal-800 rounded-xl">
+                    Semua data disimpan di memori peramban Anda dan dapat di-backup kapan saja.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
