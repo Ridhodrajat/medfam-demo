@@ -275,10 +275,38 @@
 
     const evaluateBloodPressure = (systolic, diastolic) => {
       if (!systolic || !diastolic) return null;
-      if (systolic < 90 || diastolic < 60) return { status: 'Rendah', level: 'low', ref: 'INA-SH: Hipotensi' };
-      if (systolic <= 120 && diastolic <= 80) return { status: 'Normal', level: 'normal', ref: 'Kemenkes RI: Normal (≤120/80)' };
-      if (systolic <= 139 || diastolic <= 89) return { status: 'Pre-Hipertensi', level: 'warning', ref: 'Kemenkes RI: 121-139 / 81-89' };
-      return { status: 'Hipertensi', level: 'high', ref: 'JNC 8: Waspada Hipertensi (≥140/90)' };
+      if (systolic < 90 || diastolic < 60) return { status: 'Rendah', level: 'low', ref: 'INA-SH: Hipotensi (<90/<60)' };
+      // Menurut Konsensus INA-SH & Kemenkes: Sistolik < 130 DAN Diastolik < 85 adalah rentang Normal
+      if (systolic < 130 && diastolic < 85) return { status: 'Normal', level: 'normal', ref: 'INA-SH / Kemenkes: Normal (<130/<85)' };
+      // Pre-Hipertensi: Sistolik 130-139 ATAU Diastolik 85-89
+      if (systolic <= 139 || diastolic <= 89) return { status: 'Pre-Hipertensi', level: 'warning', ref: 'INA-SH: 130-139 / 85-89 mmHg' };
+      return { status: 'Hipertensi', level: 'high', ref: 'JNC / INA-SH: Hipertensi (≥140/90)' };
+    };
+
+    const evaluateUricAcid = (val, gender = 'Pria') => {
+      if (!val) return null;
+      const isFemale = gender === 'Wanita' || gender === 'Perempuan';
+      const lowLimit = isFemale ? 2.4 : 3.4;
+      const highLimit = isFemale ? 6.0 : 7.0;
+      if (val < lowLimit) return { status: 'Rendah', level: 'low', ref: `Target: ${lowLimit}-${highLimit} mg/dL` };
+      if (val <= highLimit) return { status: 'Normal', level: 'normal', ref: `Normal: ${lowLimit}-${highLimit} mg/dL (Kemenkes)` };
+      return { status: 'Tinggi', level: 'high', ref: `Waspada Asam Urat (> ${highLimit} mg/dL)` };
+    };
+
+    const evaluateHb = (val, gender = 'Pria', age = 30) => {
+      if (!val) return null;
+      let lowLimit = 13.0;
+      let highLimit = 17.5;
+      if (age < 15) {
+        lowLimit = 11.5;
+        highLimit = 15.5;
+      } else if (gender === 'Wanita' || gender === 'Perempuan') {
+        lowLimit = 12.0;
+        highLimit = 15.5;
+      }
+      if (val < lowLimit) return { status: 'Rendah (Anemia)', level: 'high', ref: `Normal: ${lowLimit}-${highLimit} g/dL (WHO)` };
+      if (val <= highLimit) return { status: 'Normal', level: 'normal', ref: `Normal: ${lowLimit}-${highLimit} g/dL` };
+      return { status: 'Tinggi', level: 'warning', ref: `Target: ${lowLimit}-${highLimit} g/dL` };
     };
 
     const evaluateCholesterol = (val) => {
@@ -402,7 +430,10 @@
       const [activeTab, setActiveTab] = useState('checkups'); // checkups | documents | illnesses | analytics
       const [activeMetricTab, setActiveMetricTab] = useState('bloodSugar');
 
-      // Modals
+      // Modals & Editing State
+      const [editingMember, setEditingMember] = useState(null);
+      const [editingCheckup, setEditingCheckup] = useState(null);
+      const [editingIllness, setEditingIllness] = useState(null);
       const [showAddMemberModal, setShowAddMemberModal] = useState(false);
       const [showAddCheckupModal, setShowAddCheckupModal] = useState(false);
       const [showAddIllnessModal, setShowAddIllnessModal] = useState(false);
@@ -695,6 +726,8 @@
           bpSystolic: form.bpSystolic.value ? Number(form.bpSystolic.value) : null,
           bpDiastolic: form.bpDiastolic.value ? Number(form.bpDiastolic.value) : null,
           cholesterol: form.cholesterol.value ? Number(form.cholesterol.value) : null,
+          uricAcid: form.uricAcid.value ? Number(form.uricAcid.value) : null,
+          hb: form.hb.value ? Number(form.hb.value) : null,
           weight: form.weight.value ? Number(form.weight.value) : null,
           height: form.height.value ? Number(form.height.value) : null,
           customNotes: form.customNotes.value.trim()
@@ -790,6 +823,89 @@
         showToast('Berkas berhasil dihapus');
       };
 
+      // Update / Ubah Anggota Keluarga
+      const handleUpdateMember = (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const name = form.name.value.trim();
+        const dob = form.dob.value;
+        const gender = form.gender.value;
+        const relation = form.relation.value;
+        const bloodType = form.bloodType.value;
+
+        setMembers(prev => prev.map(m => {
+          if (m.id === editingMember.id) {
+            return {
+              ...m,
+              name,
+              dob,
+              gender,
+              relation,
+              bloodType
+            };
+          }
+          return m;
+        }));
+        setEditingMember(null);
+        showToast(`Profil ${name} berhasil diperbarui!`);
+      };
+
+      // Update / Ubah Hasil Pemeriksaan
+      const handleUpdateCheckup = (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const updatedCheck = {
+          ...editingCheckup,
+          date: form.checkupDate.value || new Date().toISOString().split('T')[0],
+          bloodSugar: form.bloodSugar.value ? Number(form.bloodSugar.value) : null,
+          bpSystolic: form.bpSystolic.value ? Number(form.bpSystolic.value) : null,
+          bpDiastolic: form.bpDiastolic.value ? Number(form.bpDiastolic.value) : null,
+          cholesterol: form.cholesterol.value ? Number(form.cholesterol.value) : null,
+          uricAcid: form.uricAcid.value ? Number(form.uricAcid.value) : null,
+          hb: form.hb.value ? Number(form.hb.value) : null,
+          weight: form.weight.value ? Number(form.weight.value) : null,
+          height: form.height.value ? Number(form.height.value) : null,
+          customNotes: form.customNotes.value.trim()
+        };
+
+        setMembers(prev => prev.map(m => {
+          if (m.id === selectedMemberId) {
+            return {
+              ...m,
+              checkups: m.checkups.map(c => c.id === editingCheckup.id ? updatedCheck : c)
+            };
+          }
+          return m;
+        }));
+        setEditingCheckup(null);
+        showToast('Hasil pemeriksaan berhasil diperbarui!');
+      };
+
+      // Update / Ubah Riwayat Sakit
+      const handleUpdateIllness = (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const updatedIllness = {
+          ...editingIllness,
+          name: form.illnessName.value.trim(),
+          startDate: form.startDate.value,
+          endDate: form.endDate.value || '',
+          notes: form.notes.value.trim()
+        };
+
+        setMembers(prev => prev.map(m => {
+          if (m.id === selectedMemberId) {
+            return {
+              ...m,
+              illnesses: m.illnesses.map(i => i.id === editingIllness.id ? updatedIllness : i)
+            };
+          }
+          return m;
+        }));
+        setEditingIllness(null);
+        showToast('Riwayat sakit berhasil diperbarui!');
+      };
+
       // Hapus Anggota Keluarga
       const handleDeleteMember = (memberId, memberName) => {
         if (!confirm(`Hapus anggota keluarga "${memberName}" beserta seluruh riwayat cek dan berkasnya?`)) return;
@@ -845,9 +961,9 @@
         if (!selectedMember) return;
         let csv = `data:text/csv;charset=utf-8,MEDFAM - LAPORAN KESEHATAN KELUARGA\n`;
         csv += `Nama: ${selectedMember.name}, Usia: ${calculateAge(selectedMember.dob)} Thn, Gol: ${selectedMember.bloodType}\n\n`;
-        csv += `Tanggal,Gula Darah (mg/dL),Tensi Sistolik,Tensi Diastolik,Kolesterol,Berat (kg),Catatan\n`;
+        csv += `Tanggal,Gula Darah (mg/dL),Tensi Sistolik,Tensi Diastolik,Kolesterol,Asam Urat,Hb,Berat (kg),Catatan\n`;
         selectedMember.checkups.forEach(c => {
-          csv += `"${c.date}","${c.bloodSugar || '-'}","${c.bpSystolic || '-'}","${c.bpDiastolic || '-'}","${c.cholesterol || '-'}","${c.weight || '-'}","${(c.customNotes || '').replace(/"/g, '""')}"\n`;
+          csv += `"${c.date}","${c.bloodSugar || '-'}","${c.bpSystolic || '-'}","${c.bpDiastolic || '-'}","${c.cholesterol || '-'}","${c.uricAcid || '-'}","${c.hb || '-'}","${c.weight || '-'}","${(c.customNotes || '').replace(/"/g, '""')}"\n`;
         });
         const uri = encodeURI(csv);
         const link = document.createElement("a");
@@ -1135,6 +1251,15 @@
                     </svg>
                   </button>
                   <button
+                    onClick={() => setEditingMember(selectedMember)}
+                    title={`Ubah Profil ${selectedMember.name}`}
+                    className="w-8 h-8 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-700 flex items-center justify-center border border-teal-200"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                  <button
                     onClick={() => handleDeleteMember(selectedMember.id, selectedMember.name)}
                     title={`Hapus Profil ${selectedMember.name}`}
                     className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center border border-rose-200"
@@ -1393,6 +1518,19 @@
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setEditingMember(member);
+                                }}
+                                title={`Ubah data ${member.name}`}
+                                className="w-7 h-7 rounded-full bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-teal-600 flex items-center justify-center transition-colors"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   handleDeleteMember(member.id, member.name);
                                 }}
                                 title={`Hapus ${member.name}`}
@@ -1519,6 +1657,8 @@
                           { key: 'bloodSugar', label: 'Gula Darah' },
                           { key: 'bpSystolic', label: 'Tensi' },
                           { key: 'cholesterol', label: 'Kolesterol' },
+                          { key: 'uricAcid', label: 'Asam Urat' },
+                          { key: 'hb', label: 'Hb' },
                           { key: 'weight', label: 'Berat Badan' },
                         ].map(m => (
                           <button
@@ -1539,7 +1679,7 @@
                         <SimpleLineChart
                           data={selectedMember.checkups}
                           metricKey={activeMetricTab}
-                          color={activeMetricTab === 'bloodSugar' ? '#0d9488' : activeMetricTab === 'bpSystolic' ? '#e11d48' : '#d97706'}
+                          color={activeMetricTab === 'bloodSugar' ? '#0d9488' : activeMetricTab === 'bpSystolic' ? '#e11d48' : activeMetricTab === 'cholesterol' ? '#d97706' : activeMetricTab === 'uricAcid' ? '#7c3aed' : activeMetricTab === 'hb' ? '#db2777' : '#0284c7'}
                         />
                       </div>
                     </div>
@@ -1554,6 +1694,8 @@
                         const sugarEval = evaluateBloodSugar(check.bloodSugar);
                         const bpEval = evaluateBloodPressure(check.bpSystolic, check.bpDiastolic);
                         const cholEval = evaluateCholesterol(check.cholesterol);
+                        const uricEval = evaluateUricAcid(check.uricAcid, selectedMember?.gender);
+                        const hbEval = evaluateHb(check.hb, selectedMember?.gender, calculateAge(selectedMember?.dob));
 
                         return (
                           <div key={check.id} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-2.5">
@@ -1561,13 +1703,22 @@
                               <span className="text-xs font-bold text-slate-800">
                                 {new Date(check.date).toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })}
                               </span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-slate-400 font-medium">Pemeriksaan Rutin</span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingCheckup(check)}
+                                  title="Ubah / Edit pemeriksaan ini"
+                                  className="w-6 h-6 rounded-lg hover:bg-teal-50 text-slate-400 hover:text-teal-600 flex items-center justify-center transition-colors"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteCheckup(check.id)}
                                   title="Hapus rekam pemeriksaan ini"
-                                  className="w-5 h-5 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors"
+                                  className="w-6 h-6 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors"
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1595,6 +1746,53 @@
                                   {check.bpSystolic ? `${check.bpSystolic}/${check.bpDiastolic}` : '-'}
                                 </div>
                               </div>
+
+                              {(check.cholesterol !== null && check.cholesterol !== undefined) && (
+                                <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-150">
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-[10px] font-medium text-slate-500">Kolesterol</span>
+                                    {cholEval && <StatusBadge evaluation={cholEval} />}
+                                  </div>
+                                  <div className="mt-1 font-extrabold text-slate-900 text-sm">
+                                    {`${check.cholesterol} mg/dL`}
+                                  </div>
+                                </div>
+                              )}
+
+                              {(check.uricAcid !== null && check.uricAcid !== undefined) && (
+                                <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-150">
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-[10px] font-medium text-slate-500">Asam Urat</span>
+                                    {uricEval && <StatusBadge evaluation={uricEval} />}
+                                  </div>
+                                  <div className="mt-1 font-extrabold text-slate-900 text-sm">
+                                    {`${check.uricAcid} mg/dL`}
+                                  </div>
+                                </div>
+                              )}
+
+                              {(check.hb !== null && check.hb !== undefined) && (
+                                <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-150">
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-[10px] font-medium text-slate-500">Hemoglobin (Hb)</span>
+                                    {hbEval && <StatusBadge evaluation={hbEval} />}
+                                  </div>
+                                  <div className="mt-1 font-extrabold text-slate-900 text-sm">
+                                    {`${check.hb} g/dL`}
+                                  </div>
+                                </div>
+                              )}
+
+                              {(check.weight !== null && check.weight !== undefined) && (
+                                <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-150">
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-[10px] font-medium text-slate-500">Berat Badan</span>
+                                  </div>
+                                  <div className="mt-1 font-extrabold text-slate-900 text-sm">
+                                    {`${check.weight} kg`} {check.height ? `(${check.height} cm)` : ''}
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                             {check.customNotes && (
@@ -1742,9 +1940,19 @@
                                 </span>
                                 <button
                                   type="button"
+                                  onClick={() => setEditingIllness(ill)}
+                                  title="Ubah riwayat sakit ini"
+                                  className="w-6 h-6 rounded-lg hover:bg-teal-50 text-slate-400 hover:text-teal-600 flex items-center justify-center transition-colors"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => handleDeleteIllness(ill.id)}
                                   title="Hapus riwayat sakit ini"
-                                  className="w-5 h-5 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors"
+                                  className="w-6 h-6 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors"
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -2395,6 +2603,16 @@
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Asam Urat (mg/dL)</label>
+                      <input name="uricAcid" type="number" step="0.1" placeholder="5.4" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Hemoglobin / Hb (g/dL)</label>
+                      <input name="hb" type="number" step="0.1" placeholder="14.0" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">Berat Badan (kg)</label>
                       <input name="weight" type="number" step="0.1" placeholder="65" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
                     </div>
@@ -2450,6 +2668,178 @@
             </div>
           )}
 
+          {/* 9. Modal Edit Anggota Keluarga */}
+          {editingMember && (
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+              <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-900">Ubah Data Anggota Keluarga</h3>
+                  <button type="button" onClick={() => setEditingMember(null)} className="w-7 h-7 rounded-full bg-slate-100 text-slate-500">✕</button>
+                </div>
+                <form onSubmit={handleUpdateMember} className="mt-3 space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Lengkap</label>
+                    <input name="name" defaultValue={editingMember.name} required className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal Lahir</label>
+                      <input name="dob" type="date" defaultValue={editingMember.dob} required className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Hubungan</label>
+                      <select name="relation" defaultValue={editingMember.relation} className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white">
+                        <option value="Ayah">Ayah</option>
+                        <option value="Ibu">Ibu</option>
+                        <option value="Anak">Anak</option>
+                        <option value="Kakek">Kakek</option>
+                        <option value="Nenek">Nenek</option>
+                        <option value="Lainnya">Lainnya</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Jenis Kelamin</label>
+                      <select name="gender" defaultValue={editingMember.gender} className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white">
+                        <option value="Pria">Pria</option>
+                        <option value="Wanita">Wanita</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Golongan Darah</label>
+                      <select name="bloodType" defaultValue={editingMember.bloodType} className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white">
+                        <option value="A+">A+</option>
+                        <option value="B+">B+</option>
+                        <option value="AB+">AB+</option>
+                        <option value="O+">O+</option>
+                        <option value="Belum dicek">Belum dicek</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="pt-2 flex gap-2">
+                    <button type="button" onClick={() => setEditingMember(null)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600">
+                      Batal
+                    </button>
+                    <button type="submit" className="flex-1 py-2.5 rounded-xl bg-teal-600 text-white text-xs font-semibold shadow-md shadow-teal-600/30">
+                      Simpan Perubahan
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* 10. Modal Edit Hasil Pemeriksaan */}
+          {editingCheckup && (
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+              <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[92vh] overflow-y-auto no-scrollbar">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-900">Ubah Hasil Pemeriksaan</h3>
+                  <button type="button" onClick={() => setEditingCheckup(null)} className="w-7 h-7 rounded-full bg-slate-100 text-slate-500">✕</button>
+                </div>
+                <form onSubmit={handleUpdateCheckup} className="mt-3 space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal Cek</label>
+                    <input name="checkupDate" type="date" defaultValue={editingCheckup.date} required className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Gula Darah (mg/dL)</label>
+                      <input name="bloodSugar" type="number" defaultValue={editingCheckup.bloodSugar !== null && editingCheckup.bloodSugar !== undefined ? editingCheckup.bloodSugar : ''} placeholder="110" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Kolesterol (mg/dL)</label>
+                      <input name="cholesterol" type="number" defaultValue={editingCheckup.cholesterol !== null && editingCheckup.cholesterol !== undefined ? editingCheckup.cholesterol : ''} placeholder="190" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tensi Sistolik</label>
+                      <input name="bpSystolic" type="number" defaultValue={editingCheckup.bpSystolic !== null && editingCheckup.bpSystolic !== undefined ? editingCheckup.bpSystolic : ''} placeholder="120" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tensi Diastolik</label>
+                      <input name="bpDiastolic" type="number" defaultValue={editingCheckup.bpDiastolic !== null && editingCheckup.bpDiastolic !== undefined ? editingCheckup.bpDiastolic : ''} placeholder="80" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Asam Urat (mg/dL)</label>
+                      <input name="uricAcid" type="number" step="0.1" defaultValue={editingCheckup.uricAcid !== null && editingCheckup.uricAcid !== undefined ? editingCheckup.uricAcid : ''} placeholder="5.4" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Hemoglobin / Hb (g/dL)</label>
+                      <input name="hb" type="number" step="0.1" defaultValue={editingCheckup.hb !== null && editingCheckup.hb !== undefined ? editingCheckup.hb : ''} placeholder="14.0" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Berat Badan (kg)</label>
+                      <input name="weight" type="number" step="0.1" defaultValue={editingCheckup.weight !== null && editingCheckup.weight !== undefined ? editingCheckup.weight : ''} placeholder="65" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tinggi Badan (cm)</label>
+                      <input name="height" type="number" defaultValue={editingCheckup.height !== null && editingCheckup.height !== undefined ? editingCheckup.height : ''} placeholder="165" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Catatan Tambahan</label>
+                    <textarea name="customNotes" rows="2" defaultValue={editingCheckup.customNotes || ''} placeholder="Setelah sarapan / keluhan tertentu..." className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"></textarea>
+                  </div>
+                  <div className="pt-2 flex gap-2">
+                    <button type="button" onClick={() => setEditingCheckup(null)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600">
+                      Batal
+                    </button>
+                    <button type="submit" className="flex-1 py-2.5 rounded-xl bg-teal-600 text-white text-xs font-semibold shadow-md shadow-teal-600/30">
+                      Simpan Perubahan
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* 11. Modal Edit Riwayat Sakit */}
+          {editingIllness && (
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+              <div className="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-900">Ubah Riwayat Sakit</h3>
+                  <button type="button" onClick={() => setEditingIllness(null)} className="w-7 h-7 rounded-full bg-slate-100 text-slate-500">✕</button>
+                </div>
+                <form onSubmit={handleUpdateIllness} className="mt-3 space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Penyakit / Diagnosis</label>
+                    <input name="illnessName" defaultValue={editingIllness.name} required className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal Mulai</label>
+                      <input name="startDate" type="date" defaultValue={editingIllness.startDate} required className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Tanggal Sembuh</label>
+                      <input name="endDate" type="date" defaultValue={editingIllness.endDate || ''} className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Keterangan / Terapi Obat</label>
+                    <textarea name="notes" rows="2" defaultValue={editingIllness.notes || ''} className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"></textarea>
+                  </div>
+                  <div className="pt-2 flex gap-2">
+                    <button type="button" onClick={() => setEditingIllness(null)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600">
+                      Batal
+                    </button>
+                    <button type="submit" className="flex-1 py-2.5 rounded-xl bg-teal-600 text-white text-xs font-semibold shadow-md shadow-teal-600/30">
+                      Simpan Perubahan
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
           {/* 8. Modal Pedoman MedFam */}
           {showDisclaimerInfo && (
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -2459,9 +2849,11 @@
                   <button onClick={() => setShowDisclaimerInfo(false)} className="w-7 h-7 rounded-full bg-slate-100 text-slate-500">✕</button>
                 </div>
                 <div className="text-xs text-slate-600 space-y-2">
+                  <p><strong>Tekanan Darah:</strong> Mengacu pada Konsensus INA-SH (Indonesian Society of Hypertension) & Kemenkes RI: Normal (&lt;130/&lt;85 mmHg), Pre-Hipertensi / Normal-Tinggi (130-139 / 85-89 mmHg), Hipertensi (≥140/90 mmHg).</p>
                   <p><strong>Gula Darah Sewaktu (GDS):</strong> Mengacu pada konsensus PERKENI 2021 (Normal: 90-140 mg/dL, Pre-Diabetes: 141-199 mg/dL).</p>
-                  <p><strong>Tekanan Darah:</strong> Mengacu pada standar JNC 8 & Kemenkes RI (Normal: ≤120/80 mmHg).</p>
-                  <p><strong>Kolesterol Total:</strong> Target rujukan optimal adalah &lt;200 mg/dL.</p>
+                  <p><strong>Asam Urat:</strong> Mengacu pada standar Kemenkes RI / PPHI (Normal Pria: 3.4–7.0 mg/dL, Normal Wanita: 2.4–6.0 mg/dL).</p>
+                  <p><strong>Hemoglobin (Hb):</strong> Mengacu pada standar WHO & Kemenkes RI (Normal Pria: 13.0–17.5 g/dL, Normal Wanita: 12.0–15.5 g/dL, Anak: 11.5–15.5 g/dL).</p>
+                  <p><strong>Kolesterol Total:</strong> Target rujukan optimal adalah &lt;200 mg/dL (Ambang batas waspada: 200–239 mg/dL).</p>
                   <div className="p-2.5 bg-teal-50 text-teal-800 rounded-xl">
                     Semua data disimpan di memori peramban Anda dan dapat di-backup kapan saja.
                   </div>
